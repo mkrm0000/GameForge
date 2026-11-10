@@ -1,0 +1,30 @@
+body { font: 15px/1.5 system-ui, sans-serif; margin: 0; }
+#layout { display: flex; gap: 16px; align-items: flex-start; max-width: 1400px; margin: 0 auto; padding: 16px; }
+main { flex: 1 1 0; min-width: 0; max-width: 760px; }
+#console { flex: 1 1 0; min-width: 0; position: sticky; top: 16px; height: calc(100vh - 32px); box-sizing: border-box; display: flex; flex-direction: column; border: 1px solid #ccc; border-radius: 6px; padding: 12px; }
+#console-log { flex: 1; overflow: auto; font: 12px/1.4 monospace; }
+.ev { border-bottom: 1px solid #eee; padding: 4px 0; }
+.ev .meta { color: #666; }
+.ev.system .meta, .ev.user .meta { color: #1a5fb4; }
+.ev.assistant .meta { color: #26733d; }
+.ev.error { color: #b00020; }
+.ev summary { cursor: pointer; }
+@media (max-width: 1000px) {
+  #layout { flex-direction: column; }
+  main, #console { width: 100%; max-width: none; }
+  #console { position: static; height: 400px; }
+}
+section, details { border: 1px solid #ccc; border-radius: 6px; padding: 12px; margin-bottom: 16px; }
+label { display: block; margin: 8px 0; }
+input, select, textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 6px; }
+input[type=checkbox] { width: auto; }
+button { font: inherit; padding: 6px 12px; cursor: pointer; }
+button[aria-pressed=true] { background: #222; color: #fff; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row label { flex: 1; min-width: 140px; }
+.label { width: 110px; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+#settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 12px; }
+#design-edit, pre { font: 13px/1.4 monospace; }
+pre { background: #f4f4f4; padding: 8px; overflow: auto; max-height: 280px; white-space: pre-wrap; }
+[hidden] { display: none !important; }

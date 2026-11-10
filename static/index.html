@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameForge</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="layout">
+<main>
+<h1>GameForge</h1>
+
+<details open>
+  <summary>Model</summary>
+  <label>Source
+    <select id="source">
+      <option value="openrouter">Hosted via OpenRouter (claude, gemini, chatgpt, deepseek)</option>
+      <option value="free">OpenRouter free</option>
+      <option value="local">Local LLM</option>
+      <option value="other">Other provider</option>
+    </select>
+  </label>
+  <div id="families" class="chips"></div>
+  <label id="provider-row">Provider <select id="provider"></select></label>
+  <label>Base URL <input id="base_url"></label>
+  <label>API key <input id="api_key" type="password" autocomplete="off" placeholder="empty for local models"></label>
+  <label>Model <input id="model" list="models" placeholder="model name"></label>
+  <datalist id="models"></datalist>
+  <div class="row">
+    <label>Temperature <input id="temperature" type="number" step="0.1" min="0" max="2"></label>
+    <label>Max tokens <input id="max_tokens" type="number" min="1"></label>
+  </div>
+  <div class="row">
+    <button id="test">Test connection</button>
+    <button id="save">Save</button>
+    <span id="model-status"></span>
+  </div>
+</details>
+
+<section>
+  <label>Idea <textarea id="idea" rows="3" placeholder="a game where the player fights zombies"></textarea></label>
+  <div id="guides"></div>
+  <label>Custom notes <textarea id="notes" rows="2" placeholder="genre, mechanics, characters, constraints"></textarea></label>
+  <div id="settings"></div>
+  <label><input type="checkbox" id="prototype"> Prototype: no art or audio generation, only files from builtin_assets/ or plain geometry</label>
+  <div class="row">
+    <button id="generate">Generate</button>
+    <span id="status"></span>
+  </div>
+</section>
+
+<section id="review" hidden>
+  <h2>Design</h2>
+  <div id="design"></div>
+  <textarea id="design-edit" rows="18" hidden></textarea>
+  <div class="row">
+    <button id="accept">Accept</button>
+    <button id="edit">Edit</button>
+    <button id="regen">Regenerate</button>
+    <span id="review-status"></span>
+  </div>
+</section>
+
+<section id="result" hidden>
+  <h2>Build</h2>
+  <pre id="log"></pre>
+  <a id="play" target="_blank" hidden>Play</a>
+  <div id="patch" hidden>
+    <h3>Patch</h3>
+    <label>Files (comma-separated) <input id="patch-files" value="game.js"></label>
+    <label>Change <textarea id="patch-instruction" rows="2"></textarea></label>
+    <div class="row">
+      <button id="apply-patch">Apply patch</button>
+      <span id="patch-status"></span>
+    </div>
+  </div>
+</section>
+</main>
+<aside id="console">
+  <div class="row">
+    <strong>Console</strong>
+    <button id="console-clear">Clear</button>
+  </div>
+  <div id="console-log"></div>
+</aside>
+</div>
+<script src="app.js"></script>
+<script src="model.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
