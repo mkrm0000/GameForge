@@ -1,3 +1,4 @@
 /projects
 /builtin_assets
 config.json
+__pycache__/
