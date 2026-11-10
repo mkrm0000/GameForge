@@ -222,5 +222,6 @@ $("#accept").onclick = () => run("#review-status", "Accepting and building...", 
 $("#apply-patch").onclick = () => run("#patch-status", "Patching...", async () => {
   const files = $("#patch-files").value.split(",").map(s => s.trim()).filter(Boolean);
   const r = await api("/api/patch", { slug, instruction: $("#patch-instruction").value.trim(), files });
+  log("Assets added: " + (r.assets_added.join(", ") || "none"));
   log("Patched: " + (r.updated.join(", ") || "nothing changed"));
 });

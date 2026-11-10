@@ -9,13 +9,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from builtin import copy_to, list_assets
+from builtin import LIST_NAME, copy_selected, main_list, project_list
 from events import emit, last, since
 from llm import LLM, LLMError, Truncated
 from providers import PRESETS, openrouter_models
 from schemas import (
-    FILES_SCHEMA, AcceptReq, ConfigIn, DesignDoc, DesignReq, PatchReq, SlugReq,
-    build_messages, design_messages, patch_messages,
+    FILES_SCHEMA, SELECT_SCHEMA, AcceptReq, ConfigIn, DesignDoc, DesignReq, PatchReq, SlugReq,
+    build_messages, design_messages, patch_messages, select_messages,
 )
 
 load_dotenv()
@@ -99,7 +99,10 @@ def require_accepted(slug):
 
 def valid_rel(rel):
     p = Path(rel)
-    return bool(rel) and not p.is_absolute() and ".." not in p.parts and "\\" not in rel and rel != "design.json"
+    return (
+        bool(rel) and not p.is_absolute() and ".." not in p.parts and "\\" not in rel
+        and rel not in ("design.json", LIST_NAME) and p.parts[:2] != ("assets", "builtin")
+    )
 
 
 def write_file(slug, rel, content):
@@ -126,6 +129,32 @@ def parse_build(data):
     if any(JSON_AS_CODE.search(c) for c in files.values()):
         raise ValueError("JSON files must not be loaded as a script or module; manifest.json is data only")
     return files
+
+
+def parse_selection(data):
+    names = data.get("assets") if isinstance(data, dict) else None
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        raise ValueError('Expected {"assets": [file names]}')
+    return names
+
+
+def select_assets(slug, design, task, prototype):
+    """Selection call: regenerate both lists, let the AI pick from the main list, validate, copy, refresh the project list.
+    Returns (names copied now, project list)."""
+    root = project_dir(slug)
+    main = main_list()
+    current = project_list(root)
+    if not main:
+        emit("info", "No builtin assets available; using geometry only")
+        return [], current
+    names = LLM(load_config()).chat_json(select_messages(design, task, main, current, prototype), SELECT_SCHEMA, parse_selection)
+    known = {a["file"] for a in main}
+    unknown = [n for n in names if n not in known]
+    if unknown:
+        emit("error", f"Ignored unknown asset names: {', '.join(unknown)}")
+    copied = copy_selected(root, names, main)
+    emit("info", f"Assets copied: {', '.join(copied) or 'none'}")
+    return copied, project_list(root)
 
 
 def line(**kw):
@@ -167,16 +196,16 @@ def build(req: SlugReq):
     def stream():
         try:
             emit("info", f"Build started ({req.slug})")
+            yield line(log="Selecting builtin assets...")
+            copied, assets = select_assets(req.slug, p["design"], "Build the game from the design.", proto)
+            yield line(log="Copied assets: " + (", ".join(copied) or "none (geometry only)"))
             yield line(log="Generating game files...")
-            files = LLM(load_config()).chat_json(build_messages(p["design"], p["request"], list_assets()), FILES_SCHEMA, parse_build)
+            files = LLM(load_config()).chat_json(build_messages(p["design"], p["request"], assets), FILES_SCHEMA, parse_build)
             for rel, content in files.items():
                 write_file(req.slug, rel, content)
                 emit("info", f"Wrote {rel} ({len(content)} chars)")
                 yield line(log=f"Wrote {rel}")
-            if proto:
-                copy_to(project_dir(req.slug))
-                yield line(log="Copied builtin assets")
-            elif not (project_dir(req.slug) / "music" / "README.md").exists():
+            if not proto and not (project_dir(req.slug) / "music" / "README.md").exists():
                 write_file(req.slug, "music/README.md", "Music generation is not implemented yet.\n")
             emit("info", f"Build finished: /play/{req.slug}/")
             yield line(done=True, slug=req.slug, play_url=f"/play/{req.slug}/")
@@ -198,12 +227,14 @@ def patch(req: PatchReq):
         if not (root / rel).is_file():
             raise HTTPException(404, f"No such file: {rel}")
         current[rel] = (root / rel).read_text("utf-8")
-    files = LLM(load_config()).chat_json(patch_messages(p["design"], current, req.instruction, p["request"]["settings"].get("prototype")), FILES_SCHEMA, parse_files)
+    proto = p["request"]["settings"].get("prototype")
+    added, assets = select_assets(req.slug, p["design"], req.instruction, proto)
+    files = LLM(load_config()).chat_json(patch_messages(p["design"], current, req.instruction, assets, proto), FILES_SCHEMA, parse_files)
     updated = {rel: c for rel, c in files.items() if rel in current}
     for rel, content in updated.items():
         write_file(req.slug, rel, content)
     emit("info", f"Patched: {', '.join(updated) or 'nothing changed'}")
-    return {"updated": list(updated)}
+    return {"updated": list(updated), "assets_added": added}
 
 
 @app.get("/api/events")

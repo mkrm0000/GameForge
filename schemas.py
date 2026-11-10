@@ -110,6 +110,33 @@ PATCH_SYS = (
 )
 
 
+SELECT_SCHEMA = {
+    "type": "object",
+    "properties": {"assets": {"type": "array", "items": {"type": "string"}}},
+    "required": ["assets"],
+}
+
+SELECT_SYS = (
+    "You pick builtin assets for a browser game. You get the task, the assets already in the project (project list) "
+    "and the assets available to add (main list). "
+    'Output only JSON: {"assets": ["<file name from the main list>"]}. '
+    "Choose only files from the main list, copied exactly, that the task really needs and that are not already in the project. "
+    "Return an empty list if nothing fits; the game will then use plain geometry. Never invent file names. "
+    "Names that parse as '<shape> <w>,<h> <color>.<ext>' are described by shape, size and color; other files are listed by name only."
+)
+
+ASSET_BUILD = (
+    " Builtin assets: the user message lists the assets copied into assets/builtin/ (project list). "
+    "Load them from there with encodeURI because names contain spaces and commas, and use them where they fit. "
+    "Anything not in the list must be drawn procedurally (canvas geometry or CSS shapes); never reference a file that is not listed. "
+    "assets/manifest.json lists only the builtin assets actually used."
+)
+
+ASSET_PATCH = (
+    " The user message lists the assets in assets/builtin/ (project list). Use only those or canvas/CSS geometry; "
+    "never reference an unlisted file."
+)
+
 PROTOTYPE_DESIGN = (
     " PROTOTYPE MODE: no art or audio assets. Use only simple geometry or the builtin assets; "
     "assets lists only those and audio_plan is 'none'."
@@ -137,23 +164,37 @@ def design_messages(req):
     ]
 
 
-def build_messages(design, request, builtin):
+def select_messages(design, task, main, project, prototype=False):
+    sys = SELECT_SYS + (" PROTOTYPE MODE: no art or audio generation, so prefer builtin assets over geometry where they fit." if prototype else "")
+    return [
+        {"role": "system", "content": sys},
+        {
+            "role": "user",
+            "content": f"Task: {task}\nDesign:\n{json.dumps(design)}\n"
+            f"Project list (already in the project): {json.dumps(project)}\nMain list (available to add): {json.dumps(main)}",
+        },
+    ]
+
+
+def build_messages(design, request, project_assets):
     proto = request.get("settings", {}).get("prototype")
     ctx = {k: request.get(k) for k in ("notes", "guides", "settings")}
-    user = f"Design:\n{json.dumps(design)}\nGuides and settings:\n{json.dumps(ctx)}"
-    if proto:
-        user += f"\nBuiltin assets (in assets/builtin/): {json.dumps(builtin)}"
+    user = (
+        f"Design:\n{json.dumps(design)}\nGuides and settings:\n{json.dumps(ctx)}\n"
+        f"Project list (in assets/builtin/): {json.dumps(project_assets)}"
+    )
     return [
-        {"role": "system", "content": BUILD_SYS + (PROTOTYPE_BUILD if proto else "")},
+        {"role": "system", "content": BUILD_SYS + ASSET_BUILD + (PROTOTYPE_BUILD if proto else "")},
         {"role": "user", "content": user},
     ]
 
 
-def patch_messages(design, files, instruction, prototype=False):
+def patch_messages(design, files, instruction, project_assets, prototype=False):
     return [
-        {"role": "system", "content": PATCH_SYS + (PROTOTYPE_PATCH if prototype else "")},
+        {"role": "system", "content": PATCH_SYS + ASSET_PATCH + (PROTOTYPE_PATCH if prototype else "")},
         {
             "role": "user",
-            "content": f"Design:\n{json.dumps(design)}\nInstruction: {instruction}\nFiles:\n{json.dumps(files)}",
+            "content": f"Design:\n{json.dumps(design)}\nInstruction: {instruction}\n"
+            f"Project list (in assets/builtin/): {json.dumps(project_assets)}\nFiles:\n{json.dumps(files)}",
         },
     ]
